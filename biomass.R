@@ -1,5 +1,4 @@
 ##########################################################
-#######  MISC CODE AND TROUBLESHOOTING RELATED TO  #######
 #### HERBACEOUS BIOMASS ESTIMATION - NSERP STUDY AREA ####
 ################## KJB  July 2016  #######################
 ##########################################################
@@ -16,15 +15,9 @@ wd_laptop <- "C:\\Users\\kjbark3r\\Documents\\GitHub\\Biomass"
 	  if(file.exists(wd_laptop)) {
 		setwd(wd_laptop)
 	  } else {
-		if(file.exists(wd_external)) {
-		  setwd(wd_external)
-		} else {
 		  cat("Are you SURE you got that file path right?\n")
-		}
+		  }
 	  }
-	}
-	rm(wd_workcomp, wd_laptop)
-
 
 ## PACKAGES
 
@@ -33,10 +26,20 @@ library(dplyr)
 	
 ## DATA
 
-	# connect to phenology database
-channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
+	# connect to phenology database (work comp or laptop)
+if (file.exists(wd_workcomp)) {
+  channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
                              dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Phenology_2015-10-16Kelly.accdb")
-
+} else {
+  if(file.exists(wd_laptop)) {
+    channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
+                             dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Phenology_2015-10-16Kelly.accdb")
+  } else {
+    cat("Are you SURE you got that file path right?\n")
+  }
+}
+  rm(wd_workcomp, wd_laptop)
+  
   #pull Classfication table and remove spaces from column names
 class <- sqlQuery(channel, paste("select * from Classification"))
   colnames(class) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
