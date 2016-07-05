@@ -247,3 +247,11 @@ bignasty$RescaledCover <- ifelse(bignasty$LifeForm == "forb", bignasty$Total/big
                                       ifelse(bignasty$LifeForm == "graminoid", bignasty$Total/bignasty$Grass,
                                              NA)
                                )
+#############
+## make separate columns for grass dry weight and forb dry wt
+
+clip <- clip %>%
+    separate("QuadratVisit", "
+    
+    subset(DryWt, QuadratVisit) %>%
+    full_join(bigdf, by = "QuadratVisit") %>%

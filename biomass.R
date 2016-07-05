@@ -23,6 +23,7 @@ wd_laptop <- "C:\\Users\\kjbark3r\\Documents\\GitHub\\Biomass"
 
 library(RODBC)
 library(dplyr)
+library(tidyr)
 	
 ## DATA
 
@@ -66,7 +67,7 @@ classn <- sqlQuery(channel, paste("select * from Classification"))
 
 cover <- sqlQuery(channel, paste("select * from Cover"))
   colnames(cover) <- c("VisitDate", "PlotID", "PlotM", "Grass", "Shrub",
-                       "subShrub", "Forb", "MossLichen", "NonVeg", "SmTree")
+                       "SubShrub", "Forb", "MossLichen", "NonVeg", "SmTree")
   cover <- mutate(cover, Quadrat = paste(PlotID,"-",PlotM, sep="")) %>%
 		   mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep=""))
 
@@ -79,3 +80,13 @@ bigdf$RescaledCover <- ifelse(bigdf$LifeForm == "forb", bigdf$Total/bigdf$Forb,
                                       ifelse(bigdf$LifeForm == "graminoid", bigdf$Total/bigdf$Grass,
                                              NA))
      
+# Pull ClipPlots table; add unique quadrat ID and quadrat-visit ID
+
+clip <- sqlQuery(channel, paste("select * from ClipPlots"))
+  colnames(clip) <- c("VisitDate", "PlotID", "PlotM", "LifeForm", "EmptyBag",
+                       "Total", "Live", "Senesced", "WetWt", "DryWt")
+clip <- clip %>%
+    mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep="")) %>%
+
+  
+  
