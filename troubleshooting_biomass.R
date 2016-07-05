@@ -31,7 +31,8 @@ library(dplyr)
 ############################################
 ## RUN CODE BELOW THIS LINE PIECEMEAL
 ############################################
-	
+
+####################	
 # goal 1: pull classification info
 
 channel <- odbcConnectAccess("C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Phenology_2015-10-16Kelly")
@@ -78,5 +79,171 @@ class$PlantCode <- gsub(" ", "", class$PlantCode, fixed = TRUE)
 #this does work, but you didn't actually want it to remove spaces
   #from SP entries. need to write out exceptions.
 
-#goal 4: rescale species %cover
+#what this needs to do:
+# remove typo'd spaces
+  #but not the spaces from
+    # XXXX SP
+    # UNK X
+# then pull LifeForm based on PlantCode
+  #but not for
+    # XXXX SP
+      #for these base it on the first 4 letters
+    # UNK X  
+      #for these base it on the last letters (after UNK)
 
+# doing it without changing anything first to see what names are left
+class <- left_join(class, spp, by = "PlantCode")
+class[class$LifeForm %in% NA,]
+  #write exceptions based on NAs
+
+#1. identify values that include "UNK"
+  #does dplyr select work?
+  a <- select(class$PlantCode, contains("UNK"))
+  #not so much
+
+  # %in% ?
+  class[class$PlantCode %in% "UNK"*,]
+  #tried a few variations and can't get it to work
+
+  #how bout the grep thing?
+  grep('UNK ', class$PlantCode, value = TRUE)
+  #nice
+  
+#2. label LifeForm for UNKs
+  if(grep('UNK ', class$PlantCode, value = TRUE)){
+    class$LifeForm <- "forb"
+  }
+  #this doesn't work - need a y/n answer to if
+  #try grepl - returns "logical vector"
+
+  if(grepl('UNK ', class$PlantCode)){
+    class$LifeForm <- "forb"
+  }
+  #nope - need ifelse if using grepl 
+  #bc ifelse is vectorized
+  
+  ifelse(grepl('UNK ', class$PlantCode), "forb", )
+  #close. have to have "no" argument; can't leave it blank
+  
+  class$LifeForm <- ifelse(grepl('UNK ', class$PlantCode), "forb", 
+                           class$LifeForm)
+  #worked for the UNKs but screwed up the others
+  
+  for (i in 1:nrow(class)){
+    class$LifeForm[i] <- ifelse(grepl('UNK ', class$PlantCode), "forb", 
+                           class$LifeForm[i])
+  }
+  #effs them all up (makes all NA)
+  
+    for (i in 1:nrow(class)){
+    class$LifeForm[i,] <- ifelse(grepl('UNK ', class$PlantCode[i,]), "forb", 
+                           class$LifeForm[i,])
+  }
+  #error
+  
+  for (i in 1:nrow(class)){
+  class$LifeForm[i] <- ifelse(grepl('UNK ', class$PlantCode[i]), "forb", 
+                         class$LifeForm[i])
+  }
+  #warning, i made all your data into NAs, hope that's cool. love, r
+
+  for (i in 1:nrow(class)){
+  class$LifeForm[i] <- ifelse(grepl('UNK ', class$PlantCode), "forb", 
+                         class$LifeForm[i])
+  }
+  #ditto above
+
+  class$LifeForm[1:length(class)] <- ifelse(grepl('UNK ', class$PlantCode), "forb", 
+                         class$LifeForm)  
+  #2 warnings, but didn't make all NAs (just did nothing)
+  
+  class$LifeForm[1:nrow(class)] <- ifelse(grepl('UNK ', class$PlantCode), "forb", 
+                         class$LifeForm)  
+  #warning, invalid factor level, made all NAs
+
+    class$LifeForm <- ifelse(grepl('UNK ', class$PlantCode), "forb", 
+                           next)
+    #error, you didn't actually make this a for loop, duh
+    
+  for(i in 1:nrow(class)) {
+    class$LifeForm[i] <- ifelse(grepl('UNK ', class$PlantCode[i]), "forb", 
+                           next)
+  }
+    #geez, took ya long enough
+
+## REMOVING LEADING/TRAILING SPACES FROM PLANT CODES (TYPOS)
+
+    class$PlantCode <- gsub(" ", "", class$PlantCode, fixed = TRUE)
+    #removes all spaces (incl SP or UNK entries), not just leading/trailing
+  
+    #trying to use Trim function from Access
+    #Access code would be::: TrimmedName: Trim([CategoryName])
+    
+    class$PlantCode <- sqlQuery(channel, paste("Trim([PlantCode])"))
+    #whoa, makes PlantCode into super weird stuff
+    
+    class$PlantCode <- sqlQuery(channel, paste("PlantCode: Trim([PlantCode])"))
+    #ditto    
+    
+    class$PlantCode <- sqlQuery(channel, paste("PlantCode2: Trim([PlantCode])"))
+    #samesies
+    
+    class$PlantCode <- sqlQuery(channel, paste("Expr1: Trim([PlantCode])"))
+    #yup...
+    
+    class$PlantCode <- sqlQuery(channel, paste("Trim([PlantCode])"))
+    #stillllll
+    
+    #oh my god this is a thing?
+    trimws(class$PlantCode)
+
+    
+### RESCALE SPECIES % COVER (MAKE % OF LIFE FORM IN QUADRAT)
+    
+    # % total forb cover in quadrat: from Cover table
+    cover <- sqlQuery(channel, paste("select * from Cover"))
+    
+      #remove spaces from column names
+    cover <- make.names(cover[,])
+      #eh screw it, there are also dashes and slashes and ugh. GOing manual.
+  
+#make unique quadrat-visit identifier
+    test <- class %>%
+      mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep=""))
+    
+    testcov <- cover %>%
+      mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep=""))
+    
+    visit <- unique(test$QuadratVisit)
+    
+    bignasty <- left_join(test, testcov, by = "QuadratVisit")
+    
+    bignasty$RescaledCover <- ifelse(bignasty$LifeForm == "forb", bignasty$Total/bignasty$Forb,
+                                      ifelse(bignasty$LifeForm == "graminoid", bignasty$Total/bignasty$Grass,
+                                             NA)
+                               )
+    
+
+## ARE SUB-SHRUBS INCLUDED IN PHENOLOGY PLOTS?
+    ## no
+spp[spp$LifeForm %in% "sub-shrub",]
+cover[cover$LifeForm %in% "subshrub",]
+class[class$LifeForm %in% "subshrub",]
+class[class$Species %in% "ARCUVA",]
+class[class$Species %in% "BALSAG",]  
+
+## need for loop here? (code cleanup)
+
+hm <- select(class, -LifeForm)
+
+	for(i in 1:nrow(hm)) {
+	  hm$LifeForm[i] <- ifelse(grepl('UNK ', hm$Species[i]), "forb", 
+								ifelse(hm$LifeForm == "sub-shrub", "forb", next))
+	}
+
+  #OR
+
+bignasty$RescaledCover <- ifelse(bignasty$LifeForm == "forb", bignasty$Total/bignasty$Forb,
+                                      ifelse(bignasty$LifeForm == "graminoid", bignasty$Total/bignasty$Grass,
+                                             NA)
+                               )
