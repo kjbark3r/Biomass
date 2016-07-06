@@ -86,7 +86,22 @@ clip <- sqlQuery(channel, paste("select * from ClipPlots"))
   colnames(clip) <- c("VisitDate", "PlotID", "PlotM", "LifeForm", "EmptyBag",
                        "Total", "Live", "Senesced", "WetWt", "DryWt")
 clip <- clip %>%
-    mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep="")) %>%
+    mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep=""))
+#    select(LifeForm, Total, DryWt, QuadratVisit) %>%
+#    rename(TotalCov = Total)
+#kristin - you may not need the above
+    
+# Rescale species %cover by life form type
 
-  
+drywt <- clip %>%
+  select(QuadratVisit, LifeForm, DryWt) %>%
+  spread(LifeForm, DryWt) %>%
+  rename(ForbWt = Forb, GrassWt = Grass) %>%
+  full_join(bigdf, by = "QuadratVisit") %>%
+  select(QuadratVisit, Species, RescaledCover, LifeForm, ForbWt, GrassWt)
+
+drywt$grams <- ifelse(drywt$LifeForm == "forb", drywt$RescaledCover*drywt$ForbWt,
+                      ifelse(drywt$LifeForm == "graminoid", drywt$RescaledCover*drywt$GrassWt,
+                              ifelse(NA)))
+
   

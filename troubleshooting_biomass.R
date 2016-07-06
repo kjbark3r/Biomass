@@ -248,10 +248,21 @@ bignasty$RescaledCover <- ifelse(bignasty$LifeForm == "forb", bignasty$Total/big
                                              NA)
                                )
 #############
+## ACCESS CONNECTION ON LAPTOP
+
+if(file.exists("C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Phenology.accdb")){
+  cat("Yay!")} else {
+    cat("BOO")}
+#ok, no problem finding the file. something about the driver/connection.
+
+channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
+                             dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Phenology.accdb")
+
+#############
 ## make separate columns for grass dry weight and forb dry wt
 
-clip <- clip %>%
-    separate("QuadratVisit", "
-    
-    subset(DryWt, QuadratVisit) %>%
-    full_join(bigdf, by = "QuadratVisit") %>%
+drywt <- clip %>%
+  select(QuadratVisit, LifeForm, DryWt) %>%
+  spread(LifeForm, DryWt) 
+
+drywt <- rename(drywt, ForbWt = Forb, GrassWt = Grass)
