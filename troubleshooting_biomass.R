@@ -266,3 +266,99 @@ drywt <- clip %>%
   spread(LifeForm, DryWt) 
 
 drywt <- rename(drywt, ForbWt = Forb, GrassWt = Grass)
+
+#############
+## scale spp-specific biomass to plot level
+
+biomass <- drywt %>%
+  group_by(PlotVisit, Species) %>%
+  mutate(g0.75m = sum(grams))
+##only pulled some values, lots of NAs, not sure what happened
+
+biomass <- drywt %>%
+  group_by(PlotVisit, Species) %>%
+  summarise(g0.75m = sum(grams))
+##cleaner result but still not working for everything
+
+biomass <- drywt %>%
+  group_by(Species, PlotVisit) %>%
+  summarise(g0.75m = sum(grams))
+##similar to above - not sure why some work and others not
+##setup is good; numbers are wrong
+
+sum(drywt$grams[1:3])
+#works as expected
+
+test <- drywt %>%
+  group_by(PlotVisit) %>%
+  summarise(totalg = sum(grams))
+##gives all NAs
+
+test <- group_by(drywt, PlotVisit)
+summarise(test, sum(grams))
+##whyyyyy?
+##grams are numeric...
+
+test <- group_by(drywt, PlotVisit)
+test$totalg <- mean(test$grams)
+##same problem. so not an issue with summarise or sum
+##maybe bc NAs? 
+
+test <- drywt
+test$grams[is.na(test$grams)] <- 0
+biomass <- test %>%
+  group_by(PlotVisit, Species) %>%
+  mutate(g0.75m = sum(grams))
+##i think this worked but didn't collapse data by plot visit
+##bc somebody forgot to summarise, not mutate...
+
+test <- drywt
+test$grams[is.na(test$grams)] <- 0
+test <- test %>%
+  group_by(PlotVisit, Species) %>%
+  summarise(g0.75m = sum(grams))
+##hooray
+rm(test)
+
+#now same as above but keep LifeForm data  
+
+test <- drywt
+test$grams[is.na(test$grams)] <- 0
+test <- test %>%
+  group_by(PlotVisit, Species) %>%
+  filter(g0.75m == sum(grams))
+#Rsplosion
+
+test <- drywt
+test$grams[is.na(test$grams)] <- 0
+test <- test %>%
+  group_by(PlotVisit) %>%
+  filter(g0.75m == sum(grams))
+#ditto above
+#filter prob doesn't make new columns
+
+test <- drywt
+test$grams[is.na(test$grams)] <- 0
+test <- test %>%
+  group_by(PlotVisit, Species) %>%
+  filter(grams == sum(grams))
+#well... it functionally did something...
+#(something totally wrong)
+
+test <- drywt
+test$grams[is.na(test$grams)] <- 0
+test <- test %>%
+  group_by(PlotVisit) %>%
+  filter(grams == sum(grams))
+#this one's even worse
+#screw it, i'll just re-join lifeform
+rm(test)
+
+#####
+#Add PlotID and Date (for ease of use later); export
+all.herb.biomass <- biomass %>%
+  mutate(PlotID = substr(PlotVisit, 1, 3)) %>%
+  mutate(Date = substr(PlotVisit, 5, 14)) %>% 
+  summarise(group_by(PlotVisit), biomass = g1m)
+
+write.csv(all.herb.biomass, file = "herbaceousbiomass.csv", row.names = FALSE)
