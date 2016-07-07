@@ -84,7 +84,12 @@ clip <- clip %>%
 cover <- full_join(cover, classn, by = "QuadratVisit")
 cover$RescaledCover <- ifelse(cover$LifeForm == "forb", cover$Total/cover$Forb,
                                       ifelse(cover$LifeForm == "graminoid", 
-                                             cover$Total/cover$Grass, NA))
+                                             cover$Total/cover$Grass, 
+                                             ifelse(NA)))
+
+#####################
+## KRISTIN SOMETHING BELOW THIS IS EFFED UP.
+## FIX IT.
      
 #Apportion species-specific biomass based on % cover
 drywt <- clip %>%
@@ -101,6 +106,7 @@ drywt$grams <- ifelse(drywt$LifeForm == "forb", drywt$RescaledCover*drywt$ForbWt
 biomass <- drywt
 biomass$grams[is.na(biomass$grams)] <- 0
 biomass <- summarise(group_by(biomass, PlotVisit, Species), g0.75m = sum(grams))
+biomass <- biomass[-1767,] #remove NA row caused by above line for some reason
 biomass$g1m <- biomass$g0.75m*1.33333333333333
 biomass <- left_join(biomass, spp, by = "Species")
 

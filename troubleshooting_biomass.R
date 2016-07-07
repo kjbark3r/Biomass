@@ -380,3 +380,9 @@ drywt[drywt$Species %in% NA,]
 drywt <- clip %>%
   select(QuadratVisit, LifeForm, DryWt)
   #issues already... 4 drywts are 9999.00
+
+#determining whether those 9999s are the only thing screwing up my #s
+biomass[biomass$PlotVisit == "681.2014-09-04" & biomass$LifeForm == "forb",]
+biomass[biomass$PlotVisit == "344.2014-09-03" & biomass$LifeForm == "forb",]
+biomass[biomass$PlotVisit == "340.2015-05-27" & biomass$LifeForm == "forb",]
+biomass[biomass$PlotVisit == "344.2015-07-06" & biomass$LifeForm == "graminoid",]
