@@ -355,10 +355,28 @@ test <- test %>%
 rm(test)
 
 #####
-#Add PlotID and Date (for ease of use later); export
+#sum biomass per plot visit; add PlotID and Date (for ease of use later); export
 all.herb.biomass <- biomass %>%
+  group_by(PlotVisit) %>%
+  summarise(Biomass = sum(g1m)) %>%
   mutate(PlotID = substr(PlotVisit, 1, 3)) %>%
-  mutate(Date = substr(PlotVisit, 5, 14)) %>% 
-  summarise(group_by(PlotVisit), biomass = g1m)
-
+  mutate(Date = substr(PlotVisit, 5, 14)) %>%
+  select(PlotID, Date, PlotVisit, Biomass)
+#wrong numbers - not sure why
 write.csv(all.herb.biomass, file = "herbaceousbiomass.csv", row.names = FALSE)
+
+##next steps:
+#look for NAs in base data
+  #found some rows all NA except QuadratVisit in drywt df
+spp[spp$Species %in% NA,]
+cover[cover$Species %in% NA,]
+classn[classn$Species %in% NA,]
+clip[clip$PlotVisit %in% NA,]
+drywt[drywt$Species %in% NA,]
+  #only NAs are in here - all are plot 325, visit 2014-06-18
+  #also missing some forb and grass weights in here
+  
+#investigating drywt step by step
+drywt <- clip %>%
+  select(QuadratVisit, LifeForm, DryWt)
+  #issues already... 4 drywts are 9999.00
