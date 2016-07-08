@@ -98,27 +98,30 @@ drywt$ForbWt[is.na(drywt$ForbWt)] <- 0 #replace NA with 0
 drywt$GrassWt[is.na(drywt$GrassWt)] <- 0  #bc technically weighed it
 
 #all herbaceous biomass (g/m^2)
-plot.biomass <- sppcover %>%
+biomass.plot <- sppcover %>%
   select(PlotVisit, QuadratVisit, ForbCov, GrassCov) %>%
   inner_join(drywt, by = "QuadratVisit") 
-plot.biomass <- plot.biomass[!duplicated(plot.biomass),] #remove duplicate rows
-plot.biomass <- summarise(group_by(plot.biomass, PlotVisit), gForbs = sum(ForbWt)*1.33333,
+biomass.plot <- biomass.plot[!duplicated(biomass.plot),] #remove duplicate rows
+biomass.plot <- summarise(group_by(biomass.plot, PlotVisit), gForbs = sum(ForbWt)*1.33333,
                           gGrass = sum(GrassWt)*1.33333)
-plot.biomass$PlotID <- substr(plot.biomass$PlotVisit, 1, 3)
-plot.biomass$Date <- substr(plot.biomass$PlotVisit, 5, 14)
+biomass.plot$gHerb <- biomass.plot$gForbs+biomass.plot$gGrass
+biomass.plot$PlotID <- substr(biomass.plot$PlotVisit, 1, 3)
+biomass.plot$Date <- substr(biomass.plot$PlotVisit, 5, 14)
 
-write.csv(plot.biomass, file = "biomass_allherbaceous.csv", row.names = FALSE)
+write.csv(biomass.plot, file = "biomass_allherbaceous.csv", row.names = FALSE)
 
-#Species-specific biomass
-drywt <- inner_join(drywt, sppcover, by = "QuadratVisit")
-drywt$grams <- ifelse(drywt$LifeForm == "forb", drywt$RescaledCover*drywt$ForbWt,
-                      ifelse(drywt$LifeForm == "graminoid", drywt$RescaledCover*drywt$GrassWt,
+#Species-specific biomass (g/m^2) PER QUADRAT
+biomass.spp <- left_join(sppcover, drywt, by = "QuadratVisit")
+biomass.spp$ClipGrams <- ifelse(biomass.spp$LifeForm == "forb", biomass.spp$RescaledCover*biomass.spp$ForbWt,
+                      ifelse(biomass.spp$LifeForm == "graminoid", biomass.spp$RescaledCover*biomass.spp$GrassWt,
                              ifelse(NA)))
+biomass.spp <- biomass.spp[!is.na(biomass.spp$ClipGrams),] #remove quadrats without clip plots
 
-#Scale up to plot level - all herbaceous biomass
-biomass <- drywt
-biomass <- summarise(group_by(biomass, PlotVisit, Species), g0.75m = sum(grams))
-#biomass <- biomass[-1767,] #remove NA row caused by above line for some reason
-biomass$g1m <- biomass$g0.75m*1.33333333333333
-biomass <- left_join(biomass, spp, by = "Species")
+####################################
+### FAIR WARNING
+### BELOW CODE MAY NOT WORK
 
+#forage biomass per plot-visit
+forage <- read.csv("forageplants.csv")
+biomass.forage <- left_join(forage, biomass.spp, by = "Species") 
+biomass.forage <- summarise(group_by(biomass.forage, PlotVisit), grams = sum(ClipGrams)*1.33333)

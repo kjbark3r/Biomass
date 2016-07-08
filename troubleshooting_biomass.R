@@ -423,3 +423,15 @@ any(is.na(sppcover[,7]))
 any(is.na(drywt[,1])); any(is.na(drywt[,2])); any(is.na(drywt[,3]))
 any(is.na(drywt[,4])); any(is.na(drywt[,5])); any(is.na(drywt[,6]))
 any(is.na(drywt[,7])); any(is.na(drywt[,8])); any(is.na(drywt[,9]))
+
+#########################
+## DELETED CODE
+##########################
+
+
+#Scale up to plot level - all herbaceous biomass
+biomass <- drywt
+biomass <- summarise(group_by(biomass, PlotVisit, Species), g0.75m = sum(grams))
+#biomass <- biomass[-1767,] #remove NA row caused by above line for some reason
+biomass$g1m <- biomass$g0.75m*1.33333333333333
+biomass <- left_join(biomass, spp, by = "Species")
