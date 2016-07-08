@@ -119,9 +119,13 @@ biomass.spp <- biomass.spp[!is.na(biomass.spp$ClipGrams),] #remove quadrats with
 
 ####################################
 ### FAIR WARNING
-### BELOW CODE MAY NOT WORK
-
+### BELOW CODE NEEDS WORK
+# next step: add genus to biomass.forage (probably do that in an 
+  #early data reading-in step)
+#then you can pull forage plants based on genus, not species
 #forage biomass per plot-visit
 forage <- read.csv("forageplants.csv")
+
+# 
 biomass.forage <- left_join(forage, biomass.spp, by = "Species") 
 biomass.forage <- summarise(group_by(biomass.forage, PlotVisit), grams = sum(ClipGrams)*1.33333)
