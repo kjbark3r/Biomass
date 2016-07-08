@@ -386,3 +386,40 @@ biomass[biomass$PlotVisit == "681.2014-09-04" & biomass$LifeForm == "forb",]
 biomass[biomass$PlotVisit == "344.2014-09-03" & biomass$LifeForm == "forb",]
 biomass[biomass$PlotVisit == "340.2015-05-27" & biomass$LifeForm == "forb",]
 biomass[biomass$PlotVisit == "344.2015-07-06" & biomass$LifeForm == "graminoid",]
+
+#checking for incorrect NAs at every step
+#cuz they sure as shit show up at some point
+any(is.na(cover$ForbCov)); any(is.na(cover$GrassCov))
+  #nope, cover df is good
+any(is.na(drywt$DryWt))
+  #none here until spread()
+  #those NAs are valid - but should prob be 0s
+    #for the purposes of this analysis
+any(is.na(drywt$ForbWt)); any(is.na(drywt$GrassWt))
+drywt[is.na(drywt$ForbWt),]
+  #NAs show back up when add cover to df
+any(is.na(cover$RescaledCover))
+  #ah ha
+a <- cover[is.na(cover$RescaledCover),]
+unique(a$LifeForm)
+  #makes sense; happens for shrubs
+any(is.na(drywt$grams))
+  #whyyyy
+
+########
+## making sure cover df and drywt df have same quadratvisits
+(wtf <- setdiff(cover$QuadratVisit, drywt$QuadratVisit))
+  #nope. . .
+
+########
+## check ALL the NAs!
+
+#sppcover
+any(is.na(sppcover[,1])); any(is.na(sppcover[,2])); any(is.na(sppcover[,3]))
+any(is.na(sppcover[,4])); any(is.na(sppcover[,5])); any(is.na(sppcover[,6]))
+any(is.na(sppcover[,7]))
+
+#drywt
+any(is.na(drywt[,1])); any(is.na(drywt[,2])); any(is.na(drywt[,3]))
+any(is.na(drywt[,4])); any(is.na(drywt[,5])); any(is.na(drywt[,6]))
+any(is.na(drywt[,7])); any(is.na(drywt[,8])); any(is.na(drywt[,9]))
