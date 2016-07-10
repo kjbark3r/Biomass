@@ -424,6 +424,32 @@ any(is.na(drywt[,1])); any(is.na(drywt[,2])); any(is.na(drywt[,3]))
 any(is.na(drywt[,4])); any(is.na(drywt[,5])); any(is.na(drywt[,6]))
 any(is.na(drywt[,7])); any(is.na(drywt[,8])); any(is.na(drywt[,9]))
 
+########
+## comparing plot-level herbaceous vs forage-only biomass
+
+hm <- biomass.plot %>%
+  full_join(biomass.forage, by = "PlotVisit") %>%
+  rename(gForage = grams) %>%
+  mutate(diff = gHerb-gForage)
+#hm... 4 plots have higher forage biomass than herbaceous
+#and those aren't plots we have weird data for (afaik)
+#which means i effed something up
+
+#things to check:
+## calculate herbaceous biomass by summing species data
+    ## instead of using the general forb/graminoid data
+test.biomass.plot <- biomass.spp %>%
+  inner_join(drywt, by = "QuadratVisit") 
+test.biomass.plot <- summarise(group_by(biomass.plot, PlotVisit), gForbs = sum(ForbWt)*1.33333,
+                          gGrass = sum(GrassWt)*1.33333) #biomass to plot-level, g/m^2
+
+biomass.forage <- biomass.spp 
+biomass.forage$NameScientific <- as.character(biomass.forage$NameScientific) #add genus
+biomass.forage$Genus <- sapply(strsplit(biomass.forage$NameScientific, " "), "[", 1)
+biomass.forage <- semi_join(biomass.forage, forage, by = "Genus") #forage plants only
+biomass.forage <- summarise(group_by(biomass.forage, PlotVisit), grams = sum(ClipGrams)*1.33333)
+
+
 #########################
 ## DELETED CODE
 ##########################
