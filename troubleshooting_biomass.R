@@ -450,6 +450,47 @@ biomass.forage <- semi_join(biomass.forage, forage, by = "Genus") #forage plants
 biomass.forage <- summarise(group_by(biomass.forage, PlotVisit), grams = sum(ClipGrams)*1.33333)
 
 
+#per plot - biomass, all herbaceous (by life form)
+a.lifeform <- summarise(group_by(quadrat, PlotVisit), sum(AllHerbWt)*1.33333)
+colnames(plot) <- c("PlotVisit", "SumHerb")
+  #SAME THING BUT USING SPECIES WEIGHTS (to check numbers)
+a.spp <- summarise(group_by(quadrat.spp, PlotVisit), sum(ClipGrams)*1.3333)
+colnames(plot.test) <- c("PlotVisit", "SumSpp")
+  #EFF.
+hm <- full_join(plot, plot.test, by = "PlotVisit")
+  hm$diff <- hm[,2]-hm[,3]
+
+  #####ugh ok let's start at the beginning here
+#base data
+  # number of plots
+length(unique(classn$PlotID))
+length(unique(clip$PlotID))
+length(unique(cover$PlotID))
+  #all = 12
+length(unique(classn$PlotVisit)); length(unique(clip$PlotVisit))
+  #both 109 (PlotVisit not recorded in cover)
+length(unique(classn$QuadratVisit)); length(unique(clip$QuadratVisit)); length(unique(cover$QuadratVisit))
+  #545 quadrat visits; 325 clip plot visits
+#worked up data
+length(unique(quadrat$PlotID)); length(unique(quadrat$PlotVisit)); length(unique(quadrat$QuadratVisit))
+length(unique(quadrat.spp$PlotID)); length(unique(quadrat.spp$PlotVisit)); length(unique(quadrat.spp$QuadratVisit))
+
+#try without converting first
+#per plot - biomass, all herbaceous (by life form)
+a.lifeform <- summarise(group_by(quadrat, PlotVisit), sum(AllHerbWt))
+colnames(a.lifeform) <- c("PlotVisit", "SumHerb")
+  #SAME THING BUT USING SPECIES WEIGHTS (to check numbers)
+a.spp <- summarise(group_by(quadrat.spp, PlotVisit), sum(ClipGrams))
+colnames(a.spp) <- c("PlotVisit", "SumSpp")
+a <- full_join(a.lifeform, a.spp, by = "PlotVisit")
+a$diff <- round(a[,2]-a[,3])
+
+#ok after drilling in to the database and investigating manually in excel
+#i think some of the forb/grass cover sums are recorded incorrectly
+#e.g. 322.2014-06-30.20 recorded grass cover is 6, but 
+    #indiv spp data in classification data adds to 8
+  #i am full of hatred for whoever has made these eggregious errors
+
 #########################
 ## DELETED CODE
 ##########################
@@ -461,3 +502,33 @@ biomass <- summarise(group_by(biomass, PlotVisit, Species), g0.75m = sum(grams))
 #biomass <- biomass[-1767,] #remove NA row caused by above line for some reason
 biomass$g1m <- biomass$g0.75m*1.33333333333333
 biomass <- left_join(biomass, spp, by = "Species")
+
+# COVER - plus quadrat ID, quadrat-visit ID, plot-visit ID
+cover <- sqlQuery(channel, paste("select * from Cover"))
+colnames(cover) <- c("VisitDate", "PlotID", "PlotM", "GrassCov", "ShrubCov",
+                     "SubShrubCov", "ForbCov", "MossLichenCov", "NonVegCov", "SmTreeCov")
+cover <- mutate(cover, Quadrat = paste(PlotID,"-",PlotM, sep="")) %>%
+  mutate(QuadratVisit = paste(PlotID,".", VisitDate,".",PlotM, sep="")) %>%
+  select(c(GrassCov, ForbCov, QuadratVisit))
+
+
+#####################################
+########## (PREVIOUS CALCULATIONS)
+#biomass per plot - all herbaceous
+biomass.plot <- quadrat.spp %>%
+  select(PlotVisit, QuadratVisit, ForbCov, GrassCov) %>%
+  inner_join(quadrat, by = "QuadratVisit") 
+biomass.plot <- biomass.plot[!duplicated(biomass.plot),] #remove rows duplicated by join
+biomass.plot <- summarise(group_by(biomass.plot, PlotVisit), gForbs = sum(ForbWt)*1.33333,
+                          gGrass = sum(GrassWt)*1.33333) #biomass to plot-level, g/m^2
+biomass.plot$gHerb <- biomass.plot$gForbs+biomass.plot$gGrass
+biomass.plot$PlotID <- substr(biomass.plot$PlotVisit, 1, 3)
+biomass.plot$Date <- substr(biomass.plot$PlotVisit, 5, 14)
+
+
+#biomass per plot - forage only
+biomass.forage <- quadrat.spp 
+biomass.forage$NameScientific <- as.character(biomass.forage$NameScientific) #add genus
+biomass.forage$Genus <- sapply(strsplit(biomass.forage$NameScientific, " "), "[", 1)
+biomass.forage <- semi_join(biomass.forage, forage, by = "Genus") #forage plants only
+biomass.forage <- summarise(group_by(biomass.forage, PlotVisit), grams = sum(ClipGrams)*1.33333)

@@ -47,83 +47,80 @@ spp <- sqlQuery(channel, paste("select PlantCode, LifeForm, NameScientific
                                  from NSERP_SP_list"))
 spp <- rename(spp, Species = PlantCode)
   
-# COVER - plus quadrat ID, quadrat-visit ID, plot-visit ID
-cover <- sqlQuery(channel, paste("select * from Cover"))
-colnames(cover) <- c("VisitDate", "PlotID", "PlotM", "GrassCov", "ShrubCov",
-                     "SubShrubCov", "ForbCov", "MossLichenCov", "NonVegCov", "SmTreeCov")
-cover <- mutate(cover, Quadrat = paste(PlotID,"-",PlotM, sep="")) %>%
-  mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep="")) %>%
-  select(c(GrassCov, ForbCov, QuadratVisit))
-
 # CLASSIFICATION - plus quadrat id, quadrat-visit ID, plot-visit ID, life form, genus
 classn <- sqlQuery(channel, paste("select * from Classification"))
   colnames(classn) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
   classn$Species <- trimws(classn$Species) #remove leading/trailing whitespace
 classn <- classn %>%
   mutate(Quadrat = paste(PlotID,"-",PlotM, sep="")) %>%
-	mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep="")) %>%
+	mutate(QuadratVisit = paste(PlotID,".", VisitDate,".",PlotM, sep="")) %>%
   mutate(PlotVisit = paste(PlotID, ".", VisitDate, sep="")) %>%
   left_join(spp, by = "Species") %>%
   subset(LifeForm == "forb" | LifeForm == "graminoid")
-  classn$Genus <- sapply(strsplit(forage$Species, " "), "[", 1)
+  classn$Genus <- sapply(strsplit(as.character(classn$NameScientific), " "), "[", 1)
 for(i in 1:nrow(classn)) {  #all "unknown" species are forbs
   classn$LifeForm[i] <- ifelse(grepl('UNK ', classn$Species[i]), "forb", next)
 }
+
+# COVER - creating manually because some recorded numbers are incorrect
+cover <- classn %>%
+  subset(!PlotM == 10 & !PlotM == 30) %>% #remove non-clipplots
+  group_by(QuadratVisit, LifeForm) %>%
+  summarise(Wt = sum(Total)) %>%
+  spread(LifeForm, Wt) %>%
+  rename(ForbCov = forb, GrassCov = graminoid) 
+cover$ForbCov[is.na(cover$ForbCov)] <- 0; cover$GrassCov[is.na(cover$GrassCov)] <- 0
 
 # CLIP PLOTS - plus quadrat ID, quadrat-visit ID
 clip <- sqlQuery(channel, paste("select * from ClipPlots"))
 colnames(clip) <- c("VisitDate", "PlotID", "PlotM", "LifeForm", "EmptyBag",
                     "Total", "Live", "Senesced", "WetWt", "DryWt")
 clip <- clip %>%
-  mutate(QuadratVisit = paste(PlotID,".",PlotM, ".", VisitDate, sep="")) %>%
+  mutate(QuadratVisit = paste(PlotID,".", VisitDate,".",PlotM, sep="")) %>%
   mutate(PlotVisit = paste(PlotID, ".", VisitDate, sep=""))
+
+# FORAGE PLANTS
+foragespp <- read.csv("foragespecies.csv")
 
 #########
 ## DATA - MANIPULATIONS/CALCULATIONS
 
-#rescale species % cover 
-sppcover <- left_join(cover, classn, by = "QuadratVisit")
-sppcover$RescaledCover <- ifelse(sppcover$LifeForm == "forb", sppcover$Total/sppcover$ForbCov,
-                                      ifelse(sppcover$LifeForm == "graminoid", 
-                                             sppcover$Total/sppcover$GrassCov, 
-                                             ifelse(NA)))
-sppcover <- subset(sppcover, select = c(PlotVisit, QuadratVisit, Species, Genus,
-                                        RescaledCover, LifeForm, ForbCov, GrassCov))
-
-#dry weight per quadrat - all herbaceous by life form
-drywt <- clip %>%
-  select(QuadratVisit, LifeForm, DryWt) %>%
+#per quadrat - biomass, all herbaceous (by life form)
+quadrat <- clip %>%
+  select(QuadratVisit, PlotVisit, LifeForm, DryWt) %>%
   spread(LifeForm, DryWt) %>%
   rename(ForbWt = Forb, GrassWt = Grass) 
-drywt$ForbWt[is.na(drywt$ForbWt)] <- 0 #replace NA with 0 
-drywt$GrassWt[is.na(drywt$GrassWt)] <- 0  
+quadrat$ForbWt[is.na(quadrat$ForbWt)] <- 0 #replace NA with 0 
+quadrat$GrassWt[is.na(quadrat$GrassWt)] <- 0  
+quadrat$AllHerbWt <- quadrat$ForbWt + quadrat$GrassWt
 
-#biomass per quadrat - all herbaceous by species
-biomass.spp <- left_join(sppcover, drywt, by = "QuadratVisit")
-biomass.spp$ClipGrams <- ifelse(biomass.spp$LifeForm == "forb", biomass.spp$RescaledCover*biomass.spp$ForbWt,
-                                ifelse(biomass.spp$LifeForm == "graminoid", biomass.spp$RescaledCover*biomass.spp$GrassWt,
+#per quadrat - biomass, all herbaceous (by species)
+quadrat.spp <- left_join(cover, classn, by = "QuadratVisit") %>%
+  select(-PlotVisit) #avoid duplicated column name after next join
+  #rescale species % cover
+quadrat.spp$RescaledCover <- ifelse(quadrat.spp$LifeForm == "forb", quadrat.spp$Total/quadrat.spp$ForbCov,
+                                      ifelse(quadrat.spp$LifeForm == "graminoid", 
+                                             quadrat.spp$Total/quadrat.spp$GrassCov, 
+                                             ifelse(NA)))
+quadrat.spp <- left_join(quadrat.spp, quadrat, by = "QuadratVisit")
+quadrat.spp <- subset(quadrat.spp, select = c(PlotVisit, QuadratVisit, Species, Genus, 
+                                              RescaledCover, LifeForm, ForbCov, GrassCov, 
+                                              ForbWt, GrassWt, AllHerbWt))
+  #estimate species weight based on adjusted %cover
+quadrat.spp$ClipGrams <- ifelse(quadrat.spp$LifeForm == "forb", quadrat.spp$RescaledCover*quadrat.spp$ForbWt,
+                                ifelse(quadrat.spp$LifeForm == "graminoid", quadrat.spp$RescaledCover*quadrat.spp$GrassWt,
                                        ifelse(NA)))
-biomass.spp <- biomass.spp[!is.na(biomass.spp$ClipGrams),] #remove quadrats without clip plots
-biomass.spp <- subset(biomass.spp, select = c(QuadratVisit, PlotVisit, PlotID, PlotM, Species, LifeForm, 
-                                              NameScientific, RescaledCover, ClipGrams))
+  #remove quadrats without clip plots
+quadrat.spp <- quadrat.spp[!is.na(quadrat.spp$ClipGrams),]
 
+#per plot: herbaceous and forage biomass
+herb <- quadrat %>%
+  group_by(PlotVisit) %>%
+  summarise(HerbBiomass = sum(AllHerbWt)*1.33333333)
+forage <- quadrat.spp %>%
+  semi_join(foragespp, by = "Genus") %>%
+  group_by(PlotVisit) %>%
+  summarise(ForageBiomass = sum(ClipGrams))
+biomass <- full_join(herb, forage, by = "PlotVisit")
 
-#biomass per plot - all herbaceous
-biomass.plot <- sppcover %>%
-  select(PlotVisit, QuadratVisit, ForbCov, GrassCov) %>%
-  inner_join(drywt, by = "QuadratVisit") 
-biomass.plot <- biomass.plot[!duplicated(biomass.plot),] #remove rows duplicated by join
-biomass.plot <- summarise(group_by(biomass.plot, PlotVisit), gForbs = sum(ForbWt)*1.33333,
-                          gGrass = sum(GrassWt)*1.33333) #biomass to plot-level, g/m^2
-biomass.plot$gHerb <- biomass.plot$gForbs+biomass.plot$gGrass
-biomass.plot$PlotID <- substr(biomass.plot$PlotVisit, 1, 3)
-biomass.plot$Date <- substr(biomass.plot$PlotVisit, 5, 14)
-
-
-#biomass per plot - forage only
-  forage <- read.csv("foragespecies.csv")
-biomass.forage <- biomass.spp 
-biomass.forage$NameScientific <- as.character(biomass.forage$NameScientific) #add genus
-biomass.forage$Genus <- sapply(strsplit(biomass.forage$NameScientific, " "), "[", 1)
-biomass.forage <- semi_join(biomass.forage, forage, by = "Genus") #forage plants only
-biomass.forage <- summarise(group_by(biomass.forage, PlotVisit), grams = sum(ClipGrams)*1.33333)
+write.csv(biomass, file = "biomass-phenology.csv", row.names = FALSE)
