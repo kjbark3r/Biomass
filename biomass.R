@@ -113,14 +113,35 @@ quadrat.spp$ClipGrams <- ifelse(quadrat.spp$LifeForm == "forb", quadrat.spp$Resc
   #remove quadrats without clip plots
 quadrat.spp <- quadrat.spp[!is.na(quadrat.spp$ClipGrams),]
 
-#per plot: herbaceous and forage biomass
+#per plot: herbaceous and forage biomass (forb, grass, both)
 herb <- quadrat %>%
   group_by(PlotVisit) %>%
-  summarise(HerbBiomass = sum(AllHerbWt)*1.33333333)
+  summarise(ForbBiomass = mean(ForbWt)*1.33333, GrassBiomass = mean(GrassWt)*1.33333, 
+            HerbBiomass = mean(AllHerbWt)*1.33333) 
 forage <- quadrat.spp %>%
   semi_join(foragespp, by = "Genus") %>%
+  group_by(QuadratVisit, LifeForm) %>%
+  summarise(ForageGrams = sum(ClipGrams)) %>%
+  spread(LifeForm, ForageGrams) %>% #0s have lifeform in plot but not clip plot. NAs don't have lifeform
+  rename(ForageForbG = forb, ForageGrassG = graminoid) %>%
+  mutate(PlotVisit = substr(QuadratVisit, 1, 14))
+  forage$ForageForbG[is.na(forage$ForageForbG)] <- 0
+  forage$ForageGrassG[is.na(forage$ForageGrassG)] <- 0
+  #below code is for 2 clip plots  with missing forb species data
+  #see missingdata-estimations.R and Nutrition Quicknotes for more info
+  forage[forage$QuadratVisit %in% "323.2014-06-30.20","ForageForbGrams"] <- 
+    quadrat[quadrat$QuadratVisit %in% "323.2014-06-30.20","ForbWt"]*0.2 #ff323
+  forage[forage$QuadratVisit %in% "344.2014-06-16.20","ForageForbGrams"] <-  
+    quadrat[quadrat$QuadratVisit %in% "344.2014-06-16.20","ForbWt"]*0.3337 #ff344
+forage <- forage %>%
+  ungroup() %>%
   group_by(PlotVisit) %>%
-  summarise(ForageBiomass = sum(ClipGrams))
-biomass <- full_join(herb, forage, by = "PlotVisit")
+  summarise(ForageForbBiomass = mean(ForageForbG)*1.33333, ForageGrassBiomass = mean(ForageGrassG)*1.33333) 
+  forage$ForageBiomass <- forage$ForageForbBiomass + forage$ForageGrassBiomass
+  foragebiomass <- full_join(herb, forage, by = "PlotVisit")
+  foragebiomass$GrassDiff <- foragebiomass$GrassBiomass - foragebiomass$ForageGrassBiomass
+  foragebiomass$ForbDiff <- foragebiomass$ForbBiomass - foragebiomass$ForageForbBiomass
+  foragebiomass$BiomassDiff <- foragebiomass$HerbBiomass - foragebiomass$ForageBiomass  
 
+biomass <- full_join(herb, forage, by = "PlotVisit")
 write.csv(biomass, file = "biomass-phenology.csv", row.names = FALSE)

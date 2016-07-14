@@ -491,6 +491,85 @@ a$diff <- round(a[,2]-a[,3])
     #indiv spp data in classification data adds to 8
   #i am full of hatred for whoever has made these eggregious errors
 
+
+###########averaging biomass
+#per plot: herbaceous and forage biomass
+herb <- quadrat %>%
+  group_by(QuadratVisit) %>%
+  summarise(PlotVisit, 
+            ForbWt = sum(ForbWt)*1.33333333,
+            GrassWt = sum(GrassWt)*1.33333333,
+            HerbWt = sum(AllHerbWt)*1.33333333) 
+  
+  group_by(PlotVisit) %>%
+  summarise(HerbBiomass = mean(AllHerbWt))
+
+forage <- quadrat.spp %>%
+  semi_join(foragespp, by = "Genus") %>%
+  group_by(PlotVisit) %>%
+  summarise(ForageBiomass = sum(ClipGrams))
+
+forage[forage$QuadratVisit %in% "344.2014-06-16.20","ForageBiomass"] 
+
+
+forage2[forage2$QuadratVisit %in% "344.2014-06-16.20","ForageBiomass"] 
+
+###############
+## srsly why don't my forage biomass numbers make sense?
+##############
+
+#filter so you're only using forage species (genuses)
+#sum forb and grass clip grams for each quadrat
+#average the above sum and multiply by 1.3333 to get g/m^2 of forage forbs and grasses
+#sum forbs and grasses for total
+
+#start with quadrat.spp
+test.inner <- quadrat.spp %>%
+  inner_join(foragespp, by = "Genus")
+(a <- unique(test$Genus))
+(b <- unique(foragespp$Genus))
+#n=2403, yes, this pulls only genuses included in the forage genus list
+
+test.semi <- quadrat.spp %>%
+  semi_join(foragespp, by = "Genus")
+#n=1654, this also only pulls forage genuses but pulls fewer
+#inner duplicates some. you were definitely right to do the semi
+rm(test.inner, test.semi)
+
+#start with quadrat.spp
+test <- quadrat.spp %>%
+  #filter so you're only using forage species (genuses)
+  semi_join(foragespp, by = "Genus") %>%
+  #sum forb and grass clip grams for each quadrat
+  group_by(QuadratVisit, LifeForm) %>%
+  summarise(ForageGrams = sum(ClipGrams)) %>%
+    #verified this works
+  #average the above sum and multiply by 1.3333 to get g/m^2 of forage forbs and grasses
+  spread(LifeForm, ForageGrams) %>% #0s have that lifeform in plot but not in clip plot. NAs have no lifeform
+  rename(ForageForbG = forb, ForageGrassG = graminoid) %>%
+  mutate(PlotVisit = substr(QuadratVisit, 1, 14))
+test$ForageForbG[is.na(test$ForageForbG)] <- 0
+test$ForageGrassG[is.na(test$ForageGrassG)] <- 0
+
+test <- test %>%
+  ungroup() %>%
+  group_by(PlotVisit) %>%
+  summarise(ForageForbBiomass = mean(ForageForbG)*1.33333, ForageGrassBiomass = mean(ForageGrassG)*1.33333) 
+test$ForageBiomass <- test$ForageForbBiomass + test$ForageGrassBiomass
+testbiomass <- full_join(herb, test, by = "PlotVisit")
+testbiomass$GrassDiff <- testbiomass$GrassBiomass - testbiomass$ForageGrassBiomass
+testbiomass$ForbDiff <- testbiomass$ForbBiomass - testbiomass$ForageForbBiomass
+testbiomass$BiomassDiff <- testbiomass$HerbBiomass - testbiomass$ForageBiomass
+testbiomass <- biomass
+
+#looks OK (yay!) except for 364.2014-06-16 - forage values are higher than all herbaceous values
+classn[classn$PlotVisit %in% "364.2014-06-16",] 
+clip[clip$PlotVisit %in% "364.2014-06-16",] 
+#looked at cover
+quadrat.spp[quadrat.spp$PlotVisit %in% "364.2014-06-16",]
+quadrat[quadrat$PlotVisit %in% "364.2014-06-16",]
+sum(quadrat.spp[quadrat.spp$PlotVisit %in% "364.2014-06-16","ClipGrams"])
+
 #########################
 ## DELETED CODE
 ##########################
@@ -511,6 +590,29 @@ cover <- mutate(cover, Quadrat = paste(PlotID,"-",PlotM, sep="")) %>%
   mutate(QuadratVisit = paste(PlotID,".", VisitDate,".",PlotM, sep="")) %>%
   select(c(GrassCov, ForbCov, QuadratVisit))
 
+##look at stuff and ponder what i'm actually doing
+##bc it's hard to get back to data analyses after playing with bears
+  #344.2014-06-16.20
+allcover[allcover$QuadratVisit %in% "344.2014-06-16.0" | allcover$QuadratVisit %in% "344.2014-06-16.10" | 
+         allcover$QuadratVisit %in% "344.2014-06-16.20" | allcover$QuadratVisit %in% "344.2014-06-16.30" | 
+         allcover$QuadratVisit %in% "344.2014-06-16.40",]
+clip[clip$PlotVisit %in% "344.2014-06-16",] %>%
+  arrange(PlotM)
+classn[classn$PlotVisit %in% "344.2014-06-16",] %>%
+  arrange(PlotM)
+  #323.2014-06-30.20
+allcover[allcover$QuadratVisit %in% "323.2014-06-30.0" | allcover$QuadratVisit %in% "323.2014-06-30.10" | 
+         allcover$QuadratVisit %in% "323.2014-06-30.20" | allcover$QuadratVisit %in% "323.2014-06-30.30" | 
+         allcover$QuadratVisit %in% "323.2014-06-30.40",]
+clip[clip$PlotVisit %in% "323.2014-06-30",] %>%
+  arrange(PlotM)
+classn[classn$PlotVisit %in% "323.2014-06-30",] %>%
+  arrange(PlotM)
+
+####oops, put this in plots not quadrats
+quadrat$ForbWt <- quadrat$ForbWt*1.333333 #convert from g/0.75m^2 to g/m^2
+quadrat$GrassWt <- quadrat$GrassWt*1.333333 #convert from g/0.75m^2 to g/m^2
+quadrat.spp$ClipGrams <- quadrat.spp$ClipGrams*1.3333333
 
 #####################################
 ########## (PREVIOUS CALCULATIONS)
