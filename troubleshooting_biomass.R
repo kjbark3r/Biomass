@@ -570,6 +570,36 @@ quadrat.spp[quadrat.spp$PlotVisit %in% "364.2014-06-16",]
 quadrat[quadrat$PlotVisit %in% "364.2014-06-16",]
 sum(quadrat.spp[quadrat.spp$PlotVisit %in% "364.2014-06-16","ClipGrams"])
 
+
+a <- as.data.frame(quadrat.spp[quadrat.spp$PlotVisit %in% "364.2014-06-16",])
+#problem is for plots that (should) have 0 for both forb and grass forage biomass
+#the zeros aren't included when it averages out to whole plot
+#because there's no row for those plots
+##so instead of filtering only forage species, need to add an indicator,
+##make ForageGrams column, and put 0 for non-forage species
+
+forage <- foragespp %>%
+  select(Genus, CumAve) %>%
+  transmute(Genus, ForagePlant = ifelse(is.na(CumAve), "No", "Yes")) %>%
+  right_join(quadrat.spp, by = "Genus") 
+forage$ForagePlant <- ifelse(is.na(forage$ForagePlant), "No", "Yes")
+forage$ForageGrams <- ifelse(forage$ForagePlant == "Yes", forage$ClipGrams, 0)
+forage <- forage[!duplicated(forage),]
+forage <- forage %>%
+  group_by(QuadratVisit, LifeForm) %>%
+  summarise(ForageG = sum(ForageGrams)) %>%
+  spread(LifeForm, ForageG) %>% #0s have lifeform in plot but not clip plot. NAs don't have lifeform
+  rename(ForageForbG = forb, ForageGrassG = graminoid) %>%
+  mutate(PlotVisit = substr(QuadratVisit, 1, 14))
+  forage$ForageForbG[is.na(forage$ForageForbG)] <- 0
+  forage$ForageGrassG[is.na(forage$ForageGrassG)] <- 0
+
+
+foragebiomass <- biomass
+foragebiomass$GrassDiff <- foragebiomass$GrassBiomass - foragebiomass$ForageGrassBiomass
+foragebiomass$ForbDiff <- foragebiomass$ForbBiomass - foragebiomass$ForageForbBiomass
+foragebiomass$BiomassDiff <- foragebiomass$HerbBiomass - foragebiomass$ForageHerbBiomass  
+  
 #########################
 ## DELETED CODE
 ##########################

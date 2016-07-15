@@ -118,11 +118,17 @@ herb <- quadrat %>%
   group_by(PlotVisit) %>%
   summarise(ForbBiomass = mean(ForbWt)*1.33333, GrassBiomass = mean(GrassWt)*1.33333, 
             HerbBiomass = mean(AllHerbWt)*1.33333) 
-forage <- quadrat.spp %>%
-  semi_join(foragespp, by = "Genus") %>%
+forage <- foragespp %>%
+  select(Genus, CumAve) %>%
+  transmute(Genus, ForagePlant = ifelse(is.na(CumAve), "No", "Yes")) %>%
+  right_join(quadrat.spp, by = "Genus") 
+forage$ForagePlant <- ifelse(is.na(forage$ForagePlant), "No", "Yes")
+forage$ForageGrams <- ifelse(forage$ForagePlant == "Yes", forage$ClipGrams, 0)
+forage <- forage[!duplicated(forage),]
+forage <- forage %>%
   group_by(QuadratVisit, LifeForm) %>%
-  summarise(ForageGrams = sum(ClipGrams)) %>%
-  spread(LifeForm, ForageGrams) %>% #0s have lifeform in plot but not clip plot. NAs don't have lifeform
+  summarise(ForageG = sum(ForageGrams)) %>%
+  spread(LifeForm, ForageG) %>% #0s have lifeform in plot but not clip plot. NAs don't have lifeform
   rename(ForageForbG = forb, ForageGrassG = graminoid) %>%
   mutate(PlotVisit = substr(QuadratVisit, 1, 14))
   forage$ForageForbG[is.na(forage$ForageForbG)] <- 0
@@ -137,11 +143,12 @@ forage <- forage %>%
   ungroup() %>%
   group_by(PlotVisit) %>%
   summarise(ForageForbBiomass = mean(ForageForbG)*1.33333, ForageGrassBiomass = mean(ForageGrassG)*1.33333) 
-  forage$ForageBiomass <- forage$ForageForbBiomass + forage$ForageGrassBiomass
-  foragebiomass <- full_join(herb, forage, by = "PlotVisit")
-  foragebiomass$GrassDiff <- foragebiomass$GrassBiomass - foragebiomass$ForageGrassBiomass
-  foragebiomass$ForbDiff <- foragebiomass$ForbBiomass - foragebiomass$ForageForbBiomass
-  foragebiomass$BiomassDiff <- foragebiomass$HerbBiomass - foragebiomass$ForageBiomass  
+  forage$ForageHerbBiomass <- forage$ForageForbBiomass + forage$ForageGrassBiomass
 
-biomass <- full_join(herb, forage, by = "PlotVisit")
+biomass <- full_join(herb, forage, by = "PlotVisit") %>%
+  mutate(PlotID = substr(PlotVisit, 1, 3)) %>%
+  mutate(Date = substr(PlotVisit, 5, 14)) %>%
+  select(PlotID, Date, PlotVisit, ForbBiomass, GrassBiomass, HerbBiomass,
+         ForageForbBiomass, ForageGrassBiomass, ForageHerbBiomass)
+
 write.csv(biomass, file = "biomass-phenology.csv", row.names = FALSE)
