@@ -599,7 +599,62 @@ foragebiomass <- biomass
 foragebiomass$GrassDiff <- foragebiomass$GrassBiomass - foragebiomass$ForageGrassBiomass
 foragebiomass$ForbDiff <- foragebiomass$ForbBiomass - foragebiomass$ForageForbBiomass
 foragebiomass$BiomassDiff <- foragebiomass$HerbBiomass - foragebiomass$ForageHerbBiomass  
-  
+
+###############
+## figuring out if phen and biomass plots all have different IDs
+##############
+
+library(RODBC)
+library(dplyr)
+
+#phen
+channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
+                               dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Phenology.accdb")
+phen <- sqlQuery(channel, paste("select * from Classification"))
+colnames(phen) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
+phenplots <- as.data.frame(unique(phen$PlotID))
+colnames(phenplots) <- "PlotID"
+
+
+#bio
+channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
+                             dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Database_2016-06-28.accdb")
+bio <-  sqlQuery(channel, paste("select * from Classification")) 
+colnames(bio) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
+bioplots <- as.data.frame(unique(bio$PlotID))
+colnames(bioplots) <- "PlotID"
+bioplots
+
+#both
+plots <- anti_join(phenplots, bioplots, by = "PlotID") %>% select(PlotID)
+plots <- semi_join(phenplots, bioplots, by = "PlotID") %>% select(PlotID)
+
+#yeah a bunch of them do... greeeeat
+
+###############
+## pulling plotvisit from quadrat visit using regex
+##############
+
+qv <- as.character("10.2014-08-29.0")
+
+#any numbers before the 1st period = PlotID
+  #sub() matches first instance only?
+id <- sub("[0-9]\\.", "", qv)
+  #nope
+id2 <- sapply(strsplit(qv, "\\."), `[[`, 1)
+  #fuck yeah, thanks stackoverflow
+ohplz <- sapply(strsplit(forage$QuadratVisit, "\\."), `[[`, 1)
+unique(ohplz)
+  #make column using dplyr?
+ftest <- forage %>%
+  mutate(PlotID = sapply(strsplit(QuadratVisit, "\\."), `[[`, 1))
+  #wooooot
+
+#all characters before the last (second) period = PlotVisit
+ohplz <- sub(".*\\.", "",qv)
+hm <- sub("(.*)[.].*", "\\1", qv)
+  #yesss this one
+
 #########################
 ## DELETED CODE
 ##########################

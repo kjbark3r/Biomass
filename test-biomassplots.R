@@ -9,55 +9,55 @@
 
 wd_workcomp <- "C:\\Users\\kristin.barker\\Documents\\GitHub\\Biomass"
 wd_laptop <- "C:\\Users\\kjbark3r\\Documents\\GitHub\\Biomass"
-	if (file.exists(wd_workcomp)) {
-	  setwd(wd_workcomp)
-	} else {
-	  if(file.exists(wd_laptop)) {
-		setwd(wd_laptop)
-	  } else {
-		  cat("Are you SURE you got that file path right?\n")
-		  }
-	  }
+if (file.exists(wd_workcomp)) {
+  setwd(wd_workcomp)
+} else {
+  if(file.exists(wd_laptop)) {
+    setwd(wd_laptop)
+  } else {
+    cat("Are you SURE you got that file path right?\n")
+  }
+}
 
 ## PACKAGES
 
 library(RODBC)
 library(dplyr)
 library(tidyr)
-	
+
 #########
 ## DATA - READ IN AND SET UP
 
 #Connect to Access phenology database (work computer or laptop)
 if (file.exists(wd_workcomp)) {
   channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                             dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Phenology.accdb")
+                               dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Database_2016-06-28.accdb")
+} else {
+  if(file.exists(wd_laptop)) {
+    channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
+                                 dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Database_2016-06-28.accdb")
   } else {
-    if(file.exists(wd_laptop)) {
-      channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                               dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Phenology.accdb")
-    } else {
-      cat("Are you SURE you got that file path right?\n")
+    cat("Are you SURE you got that file path right?\n")
   }
 }
 rm(wd_workcomp, wd_laptop)
 
 # LIFE FORM 
 spp <- sqlQuery(channel, paste("select PlantCode, LifeForm, NameScientific
-                                 from NSERP_SP_list"))
+                               from NSERP_SP_list"))
 spp <- rename(spp, Species = PlantCode)
-  
+
 # CLASSIFICATION - plus quadrat id, quadrat-visit ID, plot-visit ID, life form, genus
 classn <- sqlQuery(channel, paste("select * from Classification"))
-  colnames(classn) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
-  classn$Species <- trimws(classn$Species) #remove leading/trailing whitespace
+colnames(classn) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
+classn$Species <- trimws(classn$Species) #remove leading/trailing whitespace
 classn <- classn %>%
   mutate(Quadrat = paste(PlotID,"-",PlotM, sep="")) %>%
-	mutate(QuadratVisit = paste(PlotID,".", VisitDate,".",PlotM, sep="")) %>%
+  mutate(QuadratVisit = paste(PlotID,".", VisitDate,".",PlotM, sep="")) %>%
   mutate(PlotVisit = paste(PlotID, ".", VisitDate, sep="")) %>%
   left_join(spp, by = "Species") %>%
   subset(LifeForm == "forb" | LifeForm == "graminoid")
-  classn$Genus <- sapply(strsplit(as.character(classn$NameScientific), " "), "[", 1)
+classn$Genus <- sapply(strsplit(as.character(classn$NameScientific), " "), "[", 1)
 for(i in 1:nrow(classn)) {  #all "unknown" species are forbs
   classn$LifeForm[i] <- ifelse(grepl('UNK ', classn$Species[i]), "forb", next)
 }
@@ -97,20 +97,20 @@ quadrat$AllHerbWt <- quadrat$ForbWt + quadrat$GrassWt
 #per quadrat - biomass, all herbaceous (by species)
 quadrat.spp <- left_join(cover, classn, by = "QuadratVisit") %>%
   select(-PlotVisit) #avoid duplicated column name after next join
-  #rescale species % cover
+#rescale species % cover
 quadrat.spp$RescaledCover <- ifelse(quadrat.spp$LifeForm == "forb", quadrat.spp$Total/quadrat.spp$ForbCov,
-                                      ifelse(quadrat.spp$LifeForm == "graminoid", 
-                                             quadrat.spp$Total/quadrat.spp$GrassCov, 
-                                             ifelse(NA)))
+                                    ifelse(quadrat.spp$LifeForm == "graminoid", 
+                                           quadrat.spp$Total/quadrat.spp$GrassCov, 
+                                           ifelse(NA)))
 quadrat.spp <- left_join(quadrat.spp, quadrat, by = "QuadratVisit")
 quadrat.spp <- subset(quadrat.spp, select = c(PlotVisit, QuadratVisit, Species, Genus, 
                                               RescaledCover, LifeForm, ForbCov, GrassCov, 
                                               ForbWt, GrassWt, AllHerbWt))
-  #estimate species weight based on adjusted %cover
+#estimate species weight based on adjusted %cover
 quadrat.spp$ClipGrams <- ifelse(quadrat.spp$LifeForm == "forb", quadrat.spp$RescaledCover*quadrat.spp$ForbWt,
                                 ifelse(quadrat.spp$LifeForm == "graminoid", quadrat.spp$RescaledCover*quadrat.spp$GrassWt,
                                        ifelse(NA)))
-  #remove quadrats without clip plots
+#remove quadrats without clip plots
 quadrat.spp <- quadrat.spp[!is.na(quadrat.spp$ClipGrams),]
 
 #per plot: herbaceous and forage biomass (forb, grass, both)
@@ -130,20 +130,15 @@ forage <- forage %>%
   summarise(ForageG = sum(ForageGrams)) %>%
   spread(LifeForm, ForageG) %>% #0s have lifeform in plot but not clip plot. NAs don't have lifeform
   rename(ForageForbG = forb, ForageGrassG = graminoid) %>%
-  mutate(PlotVisit = sub("(.*)[.].*", "\\1", QuadratVisit)) #all chars before last "." of quadvisit
-  forage$ForageForbG[is.na(forage$ForageForbG)] <- 0
-  forage$ForageGrassG[is.na(forage$ForageGrassG)] <- 0
-  #below code is for 2 clip plots  with missing forb species data
-  #see missingdata-estimations.R and Nutrition Quicknotes for more info
-  forage[forage$QuadratVisit %in% "323.2014-06-30.20","ForageForbGrams"] <- 
-    quadrat[quadrat$QuadratVisit %in% "323.2014-06-30.20","ForbWt"]*0.2 #ff323
-  forage[forage$QuadratVisit %in% "344.2014-06-16.20","ForageForbGrams"] <-  
-    quadrat[quadrat$QuadratVisit %in% "344.2014-06-16.20","ForbWt"]*0.3337 #ff344
+  mutate(PlotVisit = substr(QuadratVisit, 1, 14))
+forage$ForageForbG[is.na(forage$ForageForbG)] <- 0
+forage$ForageGrassG[is.na(forage$ForageGrassG)] <- 0
+
 forage <- forage %>%
   ungroup() %>%
   group_by(PlotVisit) %>%
   summarise(ForageForbBiomass = mean(ForageForbG)*1.33333, ForageGrassBiomass = mean(ForageGrassG)*1.33333) 
-  forage$ForageHerbBiomass <- forage$ForageForbBiomass + forage$ForageGrassBiomass
+forage$ForageHerbBiomass <- forage$ForageForbBiomass + forage$ForageGrassBiomass
 
 biomass <- full_join(herb, forage, by = "PlotVisit") %>%
   mutate(PlotID = substr(PlotVisit, 1, 3)) %>%
