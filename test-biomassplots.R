@@ -31,11 +31,11 @@ library(tidyr)
 #Connect to Access phenology database (work computer or laptop)
 if (file.exists(wd_workcomp)) {
   channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                               dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Database_2016-06-28.accdb")
+                               dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Database.accdb")
 } else {
   if(file.exists(wd_laptop)) {
     channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                                 dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Database_2016-06-28.accdb")
+                                 dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Database.accdb")
   } else {
     cat("Are you SURE you got that file path right?\n")
   }
@@ -130,7 +130,7 @@ forage <- forage %>%
   summarise(ForageG = sum(ForageGrams)) %>%
   spread(LifeForm, ForageG) %>% #0s have lifeform in plot but not clip plot. NAs don't have lifeform
   rename(ForageForbG = forb, ForageGrassG = graminoid) %>%
-  mutate(PlotVisit = substr(QuadratVisit, 1, 14))
+  mutate(PlotVisit = sub("(.*)[.].*", "\\1", QuadratVisit))
 forage$ForageForbG[is.na(forage$ForageForbG)] <- 0
 forage$ForageGrassG[is.na(forage$ForageGrassG)] <- 0
 
@@ -141,9 +141,9 @@ forage <- forage %>%
 forage$ForageHerbBiomass <- forage$ForageForbBiomass + forage$ForageGrassBiomass
 
 biomass <- full_join(herb, forage, by = "PlotVisit") %>%
-  mutate(PlotID = substr(PlotVisit, 1, 3)) %>%
-  mutate(Date = substr(PlotVisit, 5, 14)) %>%
+  mutate(PlotID = sub("\\..*", "", PlotVisit)) %>%
+  mutate(Date = sub("(.*)[.](.*)", "\\2", PlotVisit)) %>%
   select(PlotID, Date, PlotVisit, ForbBiomass, GrassBiomass, HerbBiomass,
          ForageForbBiomass, ForageGrassBiomass, ForageHerbBiomass)
 
-write.csv(biomass, file = "biomass-phenology.csv", row.names = FALSE)
+write.csv(biomass, file = "biomass-biomass.csv", row.names = FALSE)

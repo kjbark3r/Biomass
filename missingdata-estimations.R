@@ -28,16 +28,14 @@ library(dplyr)
 library(tidyr)
 	
 #########
-## DATA - READ IN AND SET UP
-
-#Connect to Access phenology database (work computer or laptop)
+## DATA - BIOMASS PLOTS
 if (file.exists(wd_workcomp)) {
   channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                             dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Phenology.accdb")
+                             dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Database.accdb")
   } else {
     if(file.exists(wd_laptop)) {
       channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                               dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Phenology.accdb")
+                               dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Database.accdb")
     } else {
       cat("Are you SURE you got that file path right?\n")
   }
@@ -48,7 +46,7 @@ rm(wd_workcomp, wd_laptop)
 wts <- sqlQuery(channel, paste("select * from ClipPlots"))
 colnames(wts) <- c("VisitDate", "PlotID", "PlotM", "LifeForm", "EmptyBag",
                     "Total", "Live", "Senesced", "WetWt", "DryWt")
-wts.rec <- wts[!wts$DryWt == 9999.00,]
+wts.rec <- wts[!wts$DryWt == 9999,]
 
 #regress dry ~ wet + b0
 reg <- lm(DryWt ~ WetWt, data = wts.rec); summary(reg)
@@ -60,26 +58,77 @@ wts.forb <- wts.rec[wts.rec$LifeForm == "Forb",]
 wts.grass <- wts.rec[wts.rec$LifeForm == "Grass",] 
 reg.forb <- lm(DryWt ~ WetWt, data = wts.forb); summary(reg.forb)
 reg.grass <- lm(DryWt ~ WetWt, data = wts.grass); summary(reg.grass)
-  #graphs
-par(mfrow = c(3,1))
-scatter.smooth(wts.rec$DryWt ~ wts.rec$WetWt, main = "All Data")
-scatter.smooth(wts.forb$DryWt ~ wts.forb$WetWt, main = "Forbs",
-               ylim = c(0, 80))
-scatter.smooth(wts.grass$DryWt ~ wts.grass$WetWt, main = "Graminoids",
-               ylim = c(0, 80), xlim = c(0,350))
-  
-#predict 9999s
-to.est <- which(wts$DryWt == 9999.00)
-  #see which are forbs and which are graminoids
-  wts[to.est[1], "LifeForm"] #forb
-  wts[to.est[2], "LifeForm"] #forb
-  wts[to.est[3], "LifeForm"] #forb
-  wts[to.est[4], "LifeForm"] #grass
 
-wts[to.est[1], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[1], "WetWt"] + reg.forb$coefficients[1]
-wts[to.est[2], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[2], "WetWt"] + reg.forb$coefficients[1]
+##AIC##
+#separate grass/forb models?
+Cand.set <- list( )
+Cand.set[[1]] <- glm(DryWt ~ WetWt, data = wts.rec)
+Cand.set[[2]] <- glm(DryWt ~ WetWt + LifeForm, data = wts.rec)
+names(Cand.set) <- c("Lumped", "Diff LifeForm")
+aictable <- aictab(Cand.set, second.ord=TRUE)
+aicresults <- print(aictable, digits = 2, LL = FALSE)
+
+Cand.set <- list( )
+Cand.set[[1]] <- glm(DryWt ~ WetWt + LifeForm, data = wts.rec)
+Cand.set[[2]] <- glm(DryWt ~ WetWt, data = wts.forb)
+Cand.set[[3]] <- glm(DryWt ~ WetWt, data = wts.grass)
+names(Cand.set) <- c("Diff LifeForm", "Forb Only", "Grass Only")
+aictable <- aictab(Cand.set, second.ord=TRUE)
+aicresults <- print(aictable, digits = 2, LL = FALSE)
+
+  #graphs
+#par(mfrow = c(3,1))
+#scatter.smooth(wts.rec$DryWt ~ wts.rec$WetWt, main = "All Data")
+#scatter.smooth(wts.forb$DryWt ~ wts.forb$WetWt, main = "Forbs",
+#               ylim = c(0, 80))
+#scatter.smooth(wts.grass$DryWt ~ wts.grass$WetWt, main = "Graminoids",
+#               ylim = c(0, 80), xlim = c(0,350))
+  
+###########
+#ESTIMATE 9999s
+#pathetically
+
+(to.est <- which(wts$DryWt == 9999.00))
+  #see which are forbs and which are graminoids
+  wts[to.est[1], "LifeForm"] #G
+  wts[to.est[2], "LifeForm"] #G
+  wts[to.est[3], "LifeForm"] #F
+  wts[to.est[4], "LifeForm"] #G
+  wts[to.est[5], "LifeForm"] #G
+  wts[to.est[6], "LifeForm"] #G
+  wts[to.est[7], "LifeForm"] #F
+  wts[to.est[8], "LifeForm"] #F
+  wts[to.est[9], "LifeForm"] #F
+  wts[to.est[10], "LifeForm"] #F
+  wts[to.est[11], "LifeForm"] #G
+  wts[to.est[12], "LifeForm"] #F
+  wts[to.est[13], "LifeForm"] #F
+  wts[to.est[14], "LifeForm"] #G
+  wts[to.est[15], "LifeForm"] #F
+  wts[to.est[16], "LifeForm"] #F
+  wts[to.est[17], "LifeForm"] #G
+  wts[to.est[18], "LifeForm"] #G
+  wts[to.est[19], "LifeForm"] #G
+  
+wts[to.est[1], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[1], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[2], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[2], "WetWt"] + reg.grass$coefficients[1]
 wts[to.est[3], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[3], "WetWt"] + reg.forb$coefficients[1]
 wts[to.est[4], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[4], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[5], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[5], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[6], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[6], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[7], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[7], "WetWt"] + reg.forb$coefficients[1]
+wts[to.est[8], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[8], "WetWt"] + reg.forb$coefficients[1]
+wts[to.est[9], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[9], "WetWt"] + reg.forb$coefficients[1]
+wts[to.est[10], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[10], "WetWt"] + reg.forb$coefficients[1]
+wts[to.est[11], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[11], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[12], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[12], "WetWt"] + reg.forb$coefficients[1]
+wts[to.est[13], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[13], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[14], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[14], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[15], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[15], "WetWt"] + reg.forb$coefficients[1]
+wts[to.est[16], "DryWt"] <- reg.forb$coefficients[2]*wts[to.est[16], "WetWt"] + reg.forb$coefficients[1]
+wts[to.est[17], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[17], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[18], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[18], "WetWt"] + reg.grass$coefficients[1]
+wts[to.est[19], "DryWt"] <- reg.grass$coefficients[2]*wts[to.est[19], "WetWt"] + reg.grass$coefficients[1]
 
 #print estimates to paste into access
 #to avoid weirdness with column names/importing back from R
@@ -87,6 +136,23 @@ wts[to.est[1],]
 wts[to.est[2],]
 wts[to.est[3],]
 wts[to.est[4],]
+wts[to.est[5],]
+wts[to.est[6],]
+wts[to.est[7],]
+wts[to.est[8],]
+wts[to.est[9],]
+wts[to.est[10],]
+wts[to.est[11],]
+wts[to.est[12],]
+wts[to.est[13],]
+wts[to.est[14],]
+wts[to.est[15],]
+wts[to.est[16],]
+wts[to.est[17],]
+wts[to.est[18],]
+wts[to.est[19],]
+
+
 
 ############################
 #####forage forb missing info

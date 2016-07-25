@@ -650,10 +650,16 @@ ftest <- forage %>%
   mutate(PlotID = sapply(strsplit(QuadratVisit, "\\."), `[[`, 1))
   #wooooot
 
-#all characters before the last (second) period = PlotVisit
-ohplz <- sub(".*\\.", "",qv)
-hm <- sub("(.*)[.].*", "\\1", qv)
-  #yesss this one
+##use these ones
+qv <- as.character("10.2014-08-29.0") #from quadratvisit:
+hm <- sub("(.*)[.].*", "\\1", qv) #plotvisit
+ohplz <- sub(".*\\.", "", qv) #quadrat
+eh <- sub("\\..*",  "", qv) #plot
+dy <- sub("(.*)[.](.*)[.](.*)", "\\2", qv) #date
+dy <- sub("(.*)[.](.*)[.](.*)", "\\3", qv) #diff way to do quadrat
+
+dy <- sub("\\..*",  "\\1", qv) #no, still gives plot
+mb <- sub("\\..*\\.",  "", qv) #everything OUTSIDE .s (you want inside for date)
 
 #########################
 ## DELETED CODE
