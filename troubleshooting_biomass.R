@@ -609,7 +609,7 @@ library(dplyr)
 
 #phen
 channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                               dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Phenology.accdb")
+                               dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Phenology.accdb")
 phen <- sqlQuery(channel, paste("select * from Classification"))
 colnames(phen) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
 phenplots <- as.data.frame(unique(phen$PlotID))
@@ -618,18 +618,45 @@ colnames(phenplots) <- "PlotID"
 
 #bio
 channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
-                             dbq=C:/Users/kjbark3r/Documents/NSERP/Databases/Sapphire_Veg_Database_2016-06-28.accdb")
+                             dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Database.accdb")
 bio <-  sqlQuery(channel, paste("select * from Classification")) 
 colnames(bio) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
 bioplots <- as.data.frame(unique(bio$PlotID))
 colnames(bioplots) <- "PlotID"
-bioplots
 
 #both
-plots <- anti_join(phenplots, bioplots, by = "PlotID") %>% select(PlotID)
-plots <- semi_join(phenplots, bioplots, by = "PlotID") %>% select(PlotID)
+plots <- anti_join(phenplots, bioplots, by = "PlotID") %>% select(PlotID) #only in phenology (2)
+plots <- semi_join(phenplots, bioplots, by = "PlotID") %>% select(PlotID) #common to both (10)
 
 #yeah a bunch of them do... greeeeat
+
+#double-checking some numbers from combined database
+#to make sure i deleted duplicates properly
+
+bio$Species <- as.character(bio$Species) #apparently dplyr doesn't like factors 
+phen$Species <- as.character(phen$Species)  
+bio$Species <- trimws(bio$Species)
+phen$Species <- trimws(phen$Species)   
+dupes <- intersect(bio, phen)
+
+# from access
+access.dupes <- read.delim("Find duplicates for Classification.txt", header = FALSE, sep = ",") 
+colnames(access.dupes) <- c("VisitDate", "PlotID", "PlotM", "Species", "Total", "Live", "Senesced")
+access.dupes <- access.dupes[,2:7]
+access.dupes$Species <- as.character(access.dupes$Species)
+r.dupes <- dupes[,2:7]
+diff <- setdiff(access.dupes, r.dupes)
+
+allrdupes <- full_join(bio, phen)
+allrdupes <- allrdupes[!duplicated(allrdupes),]
+
+bioclip <- sqlQuery(channel, paste("select * from ClipPlots"))
+colnames(clip) <- c("VisitDate", "PlotID", "PlotM", "LifeForm", "EmptyBag",
+                    "Total", "Live", "Senesced", "WetWt", "DryWt")
+
+channel <- odbcDriverConnect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};
+                               dbq=C:/Users/kristin.barker/Documents/NSERP/Databases and Mort Reports/Sapphire_Veg_Phenology.accdb")
+#ohhhh access was right; additional duplicates came from the biomass database
 
 ###############
 ## pulling plotvisit from quadrat visit using regex
