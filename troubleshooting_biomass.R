@@ -689,6 +689,15 @@ dy <- sub("\\..*",  "\\1", qv) #no, still gives plot
 mb <- sub("\\..*\\.",  "", qv) #everything OUTSIDE .s (you want inside for date)
 
 #########################
+## FIXING BIOMASS PLOT UNKNOWNS
+## AKA PLAYING WITH GREPL
+##########################
+
+a <- c("UNK FORB", "UNK GRASS", "UNK JUNCACEAE", "CARE SP1", "CAREFG")
+grepl("UNK ", a)
+grepl("UNK |CARE ", a)
+
+#########################
 ## DELETED CODE
 ##########################
 
