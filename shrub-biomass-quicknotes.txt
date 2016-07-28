@@ -1,0 +1,40 @@
+shrub biomass quicknotes
+
+for each species
+	-different equation for leaves and stems (sometimes but not always)
+	-spreadsheet notes which types of equation and which parameters to use
+		- e = exponential -> y = ae^(bx)
+		- l = linear -> y = ax + b
+		- p = power -> y = ax^(b)
+		- m = mean -> y = dunno
+	- variables same for all
+		- y = biomass (g)
+		- x = basal diam (mm)
+
+my next steps
+	- create version of spreadsheet that contains these columns:
+		- SpeciesCode
+		- For both leaves and stems (with unique column names):
+			- Function (tells equation type)
+			- a
+			- b
+			- Source (of function)
+		- **ADD CHRVIS TO THIS SPREADSHEET (GENERAL E EQN)
+	- write R code that relates shrub species to biomass equation
+		***trimws() [ARTTRI has one, not sure which others]
+		- make 0s NAs
+		- calculate average basal diameter per quadrat per species
+			- multiply by #stems in quadrat => total mm in quadrat PER SPECIES
+		- 
+
+		- average quadrats to get mm/m in plot
+		- join df with eqn df by species
+		- 
+
+
+
+decisions/misc stuff i did
+	- CHRVIS - no equation in spreadsheet. Used general equation because 
+	  rabbitbrush is similar to sagebrush, and sagebrush uses general eqn
+	- VACCAE - no leaf equation in spreadsheet. Used VACSCO leaf equation 
+	  because it looks more similar to VACSCO than VACMEM
